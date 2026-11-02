@@ -1,0 +1,101 @@
+{
+  "name": "deckwerk-vscode",
+  "displayName": "DeckWerk",
+  "description": "Open DeckWerk slide decks in a VS Code editor tab: the full DeckWerk editor, served by a private collab server on the extension host.",
+  "version": "0.0.1",
+  "publisher": "s-esposito",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/s-esposito/deckwerk-vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "deckwerk.open",
+        "title": "Open in DeckWerk",
+        "category": "DeckWerk"
+      },
+      {
+        "command": "deckwerk.openInBrowser",
+        "title": "Open in Browser",
+        "category": "DeckWerk",
+        "icon": "$(link-external)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "deckwerk.open",
+          "when": "explorerResourceIsFolder || resourceFilename == deck.json",
+          "group": "navigation@90"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "deckwerk.openInBrowser",
+          "when": "activeWebviewPanelId == deckwerk.panel || activeCustomEditorId == deckwerk.deck",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "deckwerk.openInBrowser",
+          "when": "activeWebviewPanelId == deckwerk.panel || activeCustomEditorId == deckwerk.deck"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "deckwerk.deck",
+        "displayName": "DeckWerk",
+        "selector": [
+          {
+            "filenamePattern": "deck.json"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "configuration": {
+      "title": "DeckWerk",
+      "properties": {
+        "deckwerk.path": {
+          "type": "string",
+          "default": "",
+          "description": "DeckWerk source checkout (with `npm ci` and `npm run build:collab` done). Its collab server is what the editor tab shows."
+        },
+        "deckwerk.nodePath": {
+          "type": "string",
+          "default": "",
+          "description": "Folder holding a Node >= 22 `node` binary, for DeckWerk's server. When empty, `node` on PATH."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "lint": "tsc --noEmit -p ./",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.6.3"
+  }
+}

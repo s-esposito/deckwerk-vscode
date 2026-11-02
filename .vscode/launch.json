@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Build once, then launch an Extension Development Host. Open a deck folder
+      // there and right-click it › "Open in DeckWerk".
+      "name": "Run DeckWerk Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "sourceMaps": true,
+      "preLaunchTask": "npm: build"
+    },
+    {
+      // Same, driven by the background `npm: watch` task: reload the dev host
+      // (Ctrl+R) to pick up changes instead of restarting.
+      "name": "Run DeckWerk Extension (watch)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "sourceMaps": true,
+      "preLaunchTask": "npm: watch"
+    }
+  ]
+}
