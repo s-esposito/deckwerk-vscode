@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ChildProcess, execFileSync, spawn } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
+import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as readline from "node:readline";
@@ -19,6 +20,21 @@ import { Proxy, startProxy } from "./proxy";
 const INNER_PORT = 5800;
 const READY_TIMEOUT_MS = 120_000;
 const IDLE_STOP_MS = 30_000;
+// The namespace (and /proc, which the proxy reads) exist only on Linux. Elsewhere, e.g. a
+// local macOS VS Code, the server runs on loopback on a free port: single-user, so the
+// namespace and the uid check are not needed.
+const LINUX = process.platform === "linux";
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const { port } = probe.address() as net.AddressInfo;
+      probe.close(() => resolve(port));
+    });
+  });
+}
 
 /** Per-user state: unix sockets, and which window serves which library. */
 const STATE_DIR = path.join(os.tmpdir(), `deckwerk-vscode-${process.getuid!()}`);
@@ -65,13 +81,14 @@ class DeckServer {
     // The extension host is itself Electron-as-Node; DeckWerk's Electron helpers must not be.
     for (const key of ["ELECTRON_RUN_AS_NODE", "NODE_OPTIONS", "DISPLAY", "WAYLAND_DISPLAY"]) delete env[key];
 
+    const innerPort = LINUX ? INNER_PORT : await freePort();
     const ip = ["/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip"].find((p) => fs.existsSync(p)) ?? "ip";
     const script =
-      `"$1" link set lo up && { "$2" "$3" "$4" ${INNER_PORT} & exec "$2" "$5" ` +
-      `--config vitest.config.ts scripts/collab-server.mts "$6" ` +
-      `--host 127.0.0.1 --port ${INNER_PORT} --no-local-agents; }`;
+      (LINUX ? `${ip} link set lo up && ` : "") +
+      `{ "$1" "$2" "$3" ${innerPort} & exec "$1" "$4" ` +
+      `--config vitest.config.ts scripts/collab-server.mts "$5" ` +
+      `--host 127.0.0.1 --port ${innerPort} --no-local-agents; }`;
     const args = [
-      ip,
       node,
       path.join(extensionDir, "out", "bridge.mjs"),
       socketPath,
@@ -80,7 +97,11 @@ class DeckServer {
     ];
     log.appendLine(`[deckwerk] starting the server for ${root}`);
     // Its own process group, so stopping it also stops the bridge and Electron helpers.
-    const child = spawn("unshare", ["--user", "--map-root-user", "--net", "sh", "-c", script, "sh", ...args], {
+    const [command, ...commandArgs] = [
+      ...(LINUX ? ["unshare", "--user", "--map-root-user", "--net"] : []),
+      ...["sh", "-c", script, "sh", ...args],
+    ];
+    const child = spawn(command, commandArgs, {
       cwd: checkout,
       env,
       detached: true,
@@ -159,7 +180,7 @@ function ffmpegShim(checkout: string, runDir: string): string {
   const arch = process.arch;
   const tools: Record<string, string> = {
     ffmpeg: path.join(checkout, "node_modules", "ffmpeg-static", "ffmpeg"),
-    ffprobe: path.join(checkout, "node_modules", "ffprobe-static", "bin", "linux", arch, "ffprobe"),
+    ffprobe: path.join(checkout, "node_modules", "ffprobe-static", "bin", process.platform, arch, "ffprobe"),
   };
   for (const [name, target] of Object.entries(tools)) {
     if (fs.existsSync(target)) fs.symlinkSync(target, path.join(bin, name));

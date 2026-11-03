@@ -18,6 +18,8 @@ const LOOPBACK_HEX: Record<string, string> = {
 };
 
 function peerUid(socket: net.Socket): number | null {
+  // No /proc off Linux; there the server is single-user, so any loopback peer is admitted.
+  if (process.platform !== "linux") return process.getuid!();
   const family = socket.remoteFamily === "IPv6" ? "IPv6" : "IPv4";
   const table = family === "IPv6" ? "/proc/net/tcp6" : "/proc/net/tcp";
   const hex = (port: number | undefined) => (port ?? 0).toString(16).toUpperCase().padStart(4, "0");
